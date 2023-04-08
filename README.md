@@ -10,6 +10,8 @@ The game has a bunch of hexagon-shaped regions where the fighting occurs, split 
 
 Players are usually organised in Regiments, hence the Operation class that tries to signify coordinated activities between players in the same regiment. A typical part of any operation is preparing and assigning equipment to be used. Depending on the scale, an operation can involve multiple branches working together (infantry, tanks, artillery etc). At the same time, players can choose their favourite branch, and Officers can receive a rating for their expertise in each of these types of activities.
 
+![KingstoneArtillerySquad2](https://user-images.githubusercontent.com/93508777/230697998-b5902fbb-2cfd-4b87-ae10-08910d4a0f2d.png)
+
 
 ### Objects
 
@@ -25,6 +27,7 @@ Players are usually organised in Regiments, hence the Operation class that tries
   * FOB (Forward Operating Base)
 * Operation
 * Medal
+
 * MainService
 * Main
 
