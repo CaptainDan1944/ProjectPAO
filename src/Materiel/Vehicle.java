@@ -9,18 +9,19 @@ public abstract class Vehicle {
     private String drivetrain;
     private int seats;
     private int fuelcapacity;
-    protected ArrayList<Equipment> inventory;
 
-    public abstract int checkCapacity ();
+   // public abstract int checkCapacity ();
 
-    public Vehicle(String type, String drivetrain, int seats, int fuelcapacity, ArrayList<Equipment> inventory) {
-        this.serialNumber = buildNumber;
-        buildNumber++;
+    public Vehicle(int serialNumber, String type, String drivetrain, int seats, int fuelcapacity) {
+        if(serialNumber == -1) {
+            this.serialNumber = buildNumber;
+            buildNumber++;
+        }
+        else this.serialNumber = serialNumber;
         this.type = type;
         this.drivetrain = drivetrain;
         this.seats = seats;
         this.fuelcapacity = fuelcapacity;
-        this.inventory = inventory;
     }
 
     public void setSerialNumber(int serialNumber) {
@@ -63,6 +64,5 @@ public abstract class Vehicle {
         return fuelcapacity;
     }
 
-    public ArrayList<Equipment> getInventory() { return inventory; }
 }
 

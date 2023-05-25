@@ -9,7 +9,7 @@ public class CombatVehicle extends Vehicle {
     private String armor;
     private int crew;
 
-    @Override
+    /*@Override
     public int checkCapacity() {
         int weight = 0;
         for (int i=0; i<inventory.size(); i++) {
@@ -21,11 +21,11 @@ public class CombatVehicle extends Vehicle {
 
     public void addShell(Equipment shell) {
         inventory.add(shell);
-    }
+    }*/
 
-    public CombatVehicle(String type, String drivetrain, int seats, int fuelcapacity, String weaponry,
-                         String ammunitionType, int ammunitionCapacity, String armor, int crew, ArrayList<Equipment> inventory) {
-        super(type, drivetrain, seats, fuelcapacity, inventory);
+    public CombatVehicle(int serialNumber, String type, String drivetrain, int seats, int fuelcapacity, String weaponry,
+                         String ammunitionType, int ammunitionCapacity, String armor, int crew) {
+        super(serialNumber, type, drivetrain, seats, fuelcapacity);
         this.weaponry = weaponry;
         this.ammunitionType = ammunitionType;
         this.ammunitionCapacity = ammunitionCapacity;

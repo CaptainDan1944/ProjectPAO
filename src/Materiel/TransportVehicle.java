@@ -7,7 +7,7 @@ public class TransportVehicle extends Vehicle {
     private String cargoType;
 
 
-    @Override
+    /*@Override
     public int checkCapacity() {
         int weight = 0;
         for (int i=0; i<inventory.size(); i++) {
@@ -19,10 +19,10 @@ public class TransportVehicle extends Vehicle {
 
     public void addEquipment(Equipment item) {
         inventory.add(item);
-    }
+    }*/
 
-    public TransportVehicle(String type, String drivetrain, int seats, int fuelcapacity, int transportCapacity, String cargoType, ArrayList<Equipment> inventory) {
-        super(type, drivetrain, seats, fuelcapacity, inventory);
+    public TransportVehicle(int serialNumber, String type, String drivetrain, int seats, int fuelcapacity, int transportCapacity, String cargoType) {
+        super(serialNumber, type, drivetrain, seats, fuelcapacity);
         this.transportCapacity = transportCapacity;
         this.cargoType = cargoType;
     }

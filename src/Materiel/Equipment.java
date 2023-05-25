@@ -8,9 +8,13 @@ public class Equipment {
     private int inventorySpace;
     private int slot;
 
-    public Equipment(String name, String type, int inventorySpace, int slot) {
-        this.serialNumber = buildNumber;
-        buildNumber++;
+    public Equipment(int serialNumber, String name, String type, int inventorySpace, int slot) {
+        if(serialNumber == -1)
+        {
+            this.serialNumber = buildNumber;
+            buildNumber++;
+        }
+        else this.serialNumber = serialNumber;
         this.name = name;
         this.type = type;
         this.inventorySpace = inventorySpace;

@@ -1,20 +1,49 @@
 import Awards.Medal;
-import Base.*;
+import Awards.MedalService;
+import Objectives.*;
 import Materiel.*;
-import Operation.*;
+import Operations.*;
 import Player.*;
+import Assignment.*;
 
+import java.sql.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 
+
 public class MainService {
+    Connection connection;
+    SoldierService SoldierService = Player.SoldierService.getInstance();
+    VehicleService VehicleService = Materiel.VehicleService.getInstance();
+    MedalService MedalService = Awards.MedalService.getInstance();
+    BaseService BaseService = Objectives.BaseService.getInstance();
+    EquipmentService EquipmentService = Materiel.EquipmentService.getInstance();
+    OperationService OperationService = Operations.OperationService.getInstance();
+    SoldierBase SoldierBase = Assignment.SoldierBase.getInstance();
+    SoldierOperation SoldierOperation = Assignment.SoldierOperation.getInstance();
+    VehicleOperation VehicleOperation = Assignment.VehicleOperation.getInstance();
+
+
+    static List<String> Actions = Arrays.asList("create_player", "create_equipment", "create_vehicle", "create_base", "create_operation", "create_medal",
+            "assign_soldier", "assign_materiel", "load_equipment", "display_profile", "upgrade_base", "display_inventory",
+            "assign_commander", "help", "stop");
+    static List<String> Descriptions = Arrays.asList("Add a soldier to the regiment.", "Add a piece of equipment to the inventory of a base.", "Add a new vehicle to the inventory of a base",
+            "Build a a new base.", "Plan a new operation.", "Award a medal to a Soldier.", "Assign a Soldier to a base or to an operation.",
+            "Assign materiel to an operation.", "Load equipment inside a vehicle.", "Display a Soldier's profile.", "Add an upgrade to an existing base.",
+            "Display the inventory of a base / vehicle", "Find and assign the most suitable Officer to lead an operation.", "See all actions", "Stop the app");
+
+    static List<String> EnlistedRanks = Arrays.asList("Private", "Corporal", "Sergeant", "Staff Sergeant", "Master Sergeant", "First Sergeant", "Sergeant Major");
+    static List<String> OfficerRanks = Arrays.asList("2nd Lieutenant", "Lieutenant", "Captain", "Major", "Lieutenant-Colonel", "Colonel", "Brigadier");
+
     private ArrayList<Soldier> soldiers = new ArrayList<>();
     private ArrayList<Base> bases = new ArrayList<>();
     private ArrayList<Operation> operations = new ArrayList<>();
     private ArrayList<Vehicle> vehicles = new ArrayList<>();
     private ArrayList<Medal> medals = new ArrayList<>();
     HashMap<Integer, Integer> soldierAssignment = new HashMap<>();
-    ArrayList<ArrayList<Equipment>> operationMateriel = new ArrayList<ArrayList<Equipment>>();
+    HashMap<String, ArrayList<Equipment>> operationMateriel = new HashMap<String, ArrayList<Equipment>>();
 
 
     // getters
@@ -48,6 +77,43 @@ public class MainService {
         this.medals = new ArrayList<>();
     }
 
+    public void make_connection() {
+
+        try {
+            String jdbcUrl = "jdbc:mysql://localhost:3306/paodatabase";
+            String username = "root";
+            String password = "Salam/ul2003";
+
+            connection = DriverManager.getConnection(jdbcUrl, username, password);
+
+            SoldierService.obtainConnection(connection);
+            VehicleService.obtainConnection(connection);
+            MedalService.obtainConnection(connection);
+            EquipmentService.obtainConnection(connection);
+            BaseService.obtainConnection(connection);
+            OperationService.obtainConnection(connection);
+            SoldierBase.obtainConnection(connection);
+            SoldierOperation.obtainConnection(connection);
+            VehicleOperation.obtainConnection(connection);
+
+
+        }catch (SQLException str) {
+            System.out.println (str.toString());
+        }
+
+    }
+
+    public void end_connection() {
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        }
+        catch (SQLException str) {
+            System.out.println (str.toString());
+        }
+    }
+
     public void create_player (Scanner input) {
         int rank, skill;
         String username, discordTag, steamURL, specialization, ranktype;
@@ -74,18 +140,24 @@ public class MainService {
         System.out.println("Enter the soldier's skill ( 1 -> 10 ):");
         option = input.nextLine();
         skill = Integer.parseInt(option);
+        String option1 = "abcd";
 
-        while (option != "Enlisted" && option != "Officer") {
+        while (!option1.equals("Enlisted") && !option1.equals("Officer")) {
             System.out.println("Do you want to add an 'Enlisted' Soldier or an 'Officer'?");
-            option = input.nextLine();
-            switch (option) {
+            option1 = input.nextLine();
+            switch (option1) {
                 case "Enlisted":
                     ranktype = "E";
                     System.out.println("Enter the Soldier's rank: (1 to 7 - Private to Sergeant Major)");
                     option = input.nextLine();
                     rank = Integer.parseInt(option);
 
-                    NewPlayer = new Soldier(username, discordTag, steamURL, specialization, skill, ranktype, rank);
+                    NewPlayer = new Soldier(-1, username, discordTag, steamURL, ranktype, rank, specialization, skill);
+                    try {
+                        SoldierService.saveSoldier(NewPlayer);
+                    } catch (SQLException msg) {
+                        System.out.println("Error encountered when trying to save soldier through SoldierService: " + msg.getMessage());
+                    }
                     break;
 
                 case "Officer":
@@ -93,6 +165,8 @@ public class MainService {
                     System.out.println("Enter the Officer's rank: (1 to 7 - 2nd Lieutenant to Brigadier)");
                     option = input.nextLine();
                     rank = Integer.parseInt(option);
+
+                    NewPlayer = new Soldier(-1, username, discordTag, steamURL, ranktype, rank, specialization, skill);
 
                     System.out.println("Enter the Officer's Infantry Command Skill (1 - 10):");
                     option = input.nextLine();
@@ -114,14 +188,110 @@ public class MainService {
                     option = input.nextLine();
                     logisticsCommandSkill = Integer.parseInt(option);
 
-                    NewPlayer = new Officer(username, discordTag, steamURL, specialization, skill, ranktype, rank,
-                            infantryCommandSkill, tankCommandSkill, artilleryCommandSkill, navyCommandSkill, logisticsCommandSkill);
+                    Officer NewOfficer = new Officer(NewPlayer, infantryCommandSkill, tankCommandSkill, artilleryCommandSkill, navyCommandSkill, logisticsCommandSkill);
+                    try {
+                        SoldierService.saveOfficer(NewOfficer);
+                    } catch (SQLException msg) {
+                        System.out.println("Error encountered when trying to save officer through SoldierService: " + msg.getMessage());
+                    }
                     break;
 
             }
         }
 
         soldiers.add(NewPlayer);
+
+    }
+
+    public void update_player (Scanner input) {
+        Soldier soldier_to_update;
+
+        System.out.println("Enter the UID of the player you would like to update:");
+        String option = input.nextLine();
+        int UID = Integer.parseInt(option);
+
+        soldier_to_update = SoldierService.getSoldierByUID(UID);
+
+        System.out.println("For each field below introduce a new value if you wish to change it, or write 'No' otherwise:");
+
+        System.out.println("Current username: " + soldier_to_update.getUsername());
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                soldier_to_update.setUsername(option);
+        }
+
+        System.out.println("Current discord Tag: " + soldier_to_update.getDiscordTag());
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                soldier_to_update.setDiscordTag(option);
+        }
+
+        System.out.println("Current steam URL: " + soldier_to_update.getSteamUrl());
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                soldier_to_update.setSteamUrl(option);
+        }
+
+        System.out.println("Current rank type: " + soldier_to_update.getRankType() + " Select a number from 1 to 7 below for the rank.");
+        if(soldier_to_update.getRankType().equals("Enlisted")) System.out.println("Current rank: " + soldier_to_update.getRank() + " (" + EnlistedRanks.get(soldier_to_update.getRank()-1) + ")");
+        else if(soldier_to_update.getRankType().equals("Officer")) System.out.println("Current rank: " + soldier_to_update.getRank() + " (" + OfficerRanks.get(soldier_to_update.getRank()-1) + ")");
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                if(Integer.parseInt(option) > 7)
+                    System.out.println("Already at max rank!");
+                else soldier_to_update.setRank(Integer.parseInt(option));
+        }
+
+        System.out.println("Current Specialization: " + soldier_to_update.getSpecialization());
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                soldier_to_update.setSpecialization(option);
+        }
+
+        System.out.println("Current Skill: " + soldier_to_update.getSkill());
+        option = input.nextLine();
+        switch (option) {
+            case "No":
+                ;
+            default:
+                soldier_to_update.setSkill(Integer.parseInt(option));
+        }
+
+        SoldierService.updateSoldier(soldier_to_update);
+    }
+
+    public void dismiss_player (Scanner input) {
+        System.out.println("Would you like to dismiss by 'UID' or 'Username'?");
+        String option = input.nextLine();
+        switch(option) {
+            case "UID":
+                System.out.println("Enter the UID of the player you would like to dismiss:");
+                option = input.nextLine();
+                int UID = Integer.parseInt(option);
+
+                SoldierService.deleteSoldierByUID(UID);
+            case "Username":
+                System.out.println("Enter the Username of the player you would like to dismiss:");
+                option = input.nextLine();
+
+                SoldierService.deleteSoldierByName(option);
+        }
+
     }
 
     public void create_equipment (Scanner input) {
@@ -130,12 +300,9 @@ public class MainService {
         int baseID;
         Equipment item = null;
 
-        System.out.println("Enter the ID of the base you would like the item to be stored in:");
-        String option = input.nextLine();
-        baseID = Integer.parseInt(option);
 
         System.out.println("Enter the item's designation:");
-        option = input.nextLine();
+        String option = input.nextLine();
         name = option;
 
         System.out.println("Enter the item's type:");
@@ -150,9 +317,9 @@ public class MainService {
         option = input.nextLine();
         slot = Integer.parseInt(option);
 
-        if(type != "Weapon") { item = new Equipment(name, type, inventorySpace, slot); }
+        if(!type.equals("Weapon")) { item = new Equipment(-1, name, type, inventorySpace, slot); }
 
-        if(type == "Weapon"){
+        if(type.equals("Weapon")){
             System.out.println("Please specify the ammunition type for this weapon (caliber):");
             option = input.nextLine();
             ammoType = option;
@@ -165,26 +332,97 @@ public class MainService {
             option = input.nextLine();
             range = Integer.parseInt(option);
 
-            item = new Weapon(name, type, inventorySpace, slot, ammoType, magazineSize, range);
+            item = new Weapon(-1, name, type, inventorySpace, slot, ammoType, magazineSize, range);
         }
-
-        bases.get(baseID).addItem(item);
+        EquipmentService.saveEquipment(item);
 
     }
+
+
+    public void update_equipment(Scanner input) {
+        Equipment equipmentToUpdate;
+
+        System.out.println("Enter the serial number of the equipment you would like to update:");
+        int serialNumber = Integer.parseInt(input.nextLine());
+
+        equipmentToUpdate = EquipmentService.getEquipmentBySerialNumber(serialNumber);
+
+        System.out.println("For each field below, introduce a new value if you wish to change it, or write 'No' otherwise:");
+
+        System.out.println("Current name: " + equipmentToUpdate.getName());
+        String option = input.nextLine();
+        if (!option.equals("No")) {
+            equipmentToUpdate.setName(option);
+        }
+
+        System.out.println("Current type: " + equipmentToUpdate.getType());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            equipmentToUpdate.setType(option);
+        }
+
+        System.out.println("Current inventory space: " + equipmentToUpdate.getInventorySpace());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            equipmentToUpdate.setInventorySpace(Integer.parseInt(option));
+        }
+
+        System.out.println("Current slot: " + equipmentToUpdate.getSlot());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            equipmentToUpdate.setSlot(Integer.parseInt(option));
+        }
+
+        if (equipmentToUpdate instanceof Weapon) {
+            Weapon weapon = (Weapon) equipmentToUpdate;
+
+            System.out.println("Current ammo type: " + weapon.getAmmoType());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                weapon.setAmmoType(option);
+            }
+
+            System.out.println("Current magazine size: " + weapon.getMagazineSize());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                weapon.setMagazineSize(Integer.parseInt(option));
+            }
+
+            System.out.println("Current effective range: " + weapon.getRange());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                weapon.setRange(Integer.parseInt(option));
+            }
+        }
+
+        EquipmentService.updateEquipment(equipmentToUpdate);
+    }
+
+    public void delete_equipment(Scanner input) {
+
+        System.out.println("Enter the Serial Number of the equipment you would like to dismiss:");
+        String option = input.nextLine();
+        int serialNumber = Integer.parseInt(option);
+
+        EquipmentService.deleteEquipmentBySerialNumber(serialNumber);
+
+    }
+
+
 
     public void create_vehicle (Scanner input) {
         String type, drivetrain, weaponry, ammunitionType, armor, cargoType;
         int seats, fuelCapacity, crew, ammunitionCapacity, transportCapacity;
-        int baseID;
+        //int baseID;
         ArrayList<Equipment> inventory = null;
         Vehicle wheelie = null;
 
-        System.out.println("Enter the ID of the base you would like the vehicle to be stored in:");
-        String option = input.nextLine();
-        baseID = Integer.parseInt(option);
+        //System.out.println("Enter the ID of the base you would like the vehicle to be stored in:");
+        //String option = input.nextLine();
+        //baseID = Integer.parseInt(option);
 
         System.out.println("Enter the vehicle's designation:");
-        option = input.nextLine();
+        String option = input.nextLine();
         type = option;
 
         System.out.println("Enter the vehicle's drivetrain type:");
@@ -202,7 +440,7 @@ public class MainService {
         System.out.println("Choose whether the vehicle is a Transport vehicle or a Combat vehicle ('Transport' / 'Combat'):");
         option = input.nextLine();
 
-        if(option == "Transport"){
+        if(option.equals("Transport")){
             System.out.println("Please specify the cargo the vehicle is able to carry (Items, Liquids, Resources):");
             option = input.nextLine();
             cargoType = option;
@@ -211,10 +449,10 @@ public class MainService {
             option = input.nextLine();
             transportCapacity = Integer.parseInt(option);
 
-            wheelie = new TransportVehicle(type, drivetrain, seats, fuelCapacity, transportCapacity, cargoType, inventory);
+            wheelie = new TransportVehicle(-1, type, drivetrain, seats, fuelCapacity, transportCapacity, cargoType);
         }
 
-        else if (option == "Combat"){
+        else if (option.equals("Combat")){
             System.out.println("Please specify the vehicle's main armament:");
             option = input.nextLine();
             weaponry = option;
@@ -227,7 +465,7 @@ public class MainService {
             option = input.nextLine();
             ammunitionCapacity = Integer.parseInt(option);
 
-            System.out.println("Please specify the cargo the vehicle's armor at the front/sides/rear:");
+            System.out.println("Please specify the vehicle's armor at the front/sides/rear:");
             option = input.nextLine();
             armor = option;
 
@@ -235,92 +473,242 @@ public class MainService {
             option = input.nextLine();
             crew = Integer.parseInt(option);
 
-            wheelie = new CombatVehicle(type, drivetrain, seats, fuelCapacity, weaponry, ammunitionType, ammunitionCapacity, armor, crew, inventory);
+            wheelie = new CombatVehicle(-1, type, drivetrain, seats, fuelCapacity, weaponry, ammunitionType, ammunitionCapacity, armor, crew);
         }
 
-        bases.get(baseID).addVehicle(wheelie);
+        VehicleService.saveVehicle(wheelie);
+        //bases.get(baseID).addVehicle(wheelie);
+
     }
 
-    public void create_base (Scanner input) {
-        int builderUID, baseID;
-        String hex, region;
-        ArrayList<String> upgrades = null;
-        ArrayList<Vehicle> garage = null;
-        ArrayList<Equipment> inventory = null;
 
-        int level = 1, garrisonHouses = 0, mortarHouses = 0;
-        boolean victoryPoint = false, coastalGun = false, seaport = false;
+    public void update_vehicle(Scanner input) {
+        Vehicle vehicleToUpdate;
 
-        Base NewBase = null;
+        System.out.println("Enter the serial number of the vehicle you would like to update:");
+        int serialNumber = Integer.parseInt(input.nextLine());
 
-        System.out.println("Enter the Base's ID:");
+        vehicleToUpdate = VehicleService.getVehicleBySerialNumber(serialNumber);
+
+        System.out.println("For each field below, introduce a new value if you wish to change it, or write 'No' otherwise:");
+
+        System.out.println("Current type: " + vehicleToUpdate.getType());
         String option = input.nextLine();
-        baseID = Integer.parseInt(option);
+        if(!option.equals("No")){
+            vehicleToUpdate.setType(option);
+        }
 
-        System.out.println("Enter the Base's hex:");
+        if(!option.equals("No")){
+            vehicleToUpdate.setType(option);
+        }
+
+        System.out.println("Current drivetrain: " + vehicleToUpdate.getDrivetrain());
         option = input.nextLine();
-        hex = option;
+        if(!option.equals("No")){
+            vehicleToUpdate.setDrivetrain(option);
+        }
 
-        System.out.println("Enter the Base's region:");
+        System.out.println("Current number of seats: " + vehicleToUpdate.getSeats());
         option = input.nextLine();
-        region = option;
+        if(!option.equals("No")){
+            vehicleToUpdate.setSeats(Integer.parseInt(option));
+        }
+
+        System.out.println("Current fuel capacity: " + vehicleToUpdate.getFuelCapacity());
+        option = input.nextLine();
+        if(!option.equals("No")){
+            vehicleToUpdate.setFuelCapacity(Integer.parseInt(option));
+        }
 
 
-        while (option != "World" && option != "FOB") {
-            System.out.println("Do you want to add a 'World' Base or a 'FOB'?");
+        if (vehicleToUpdate instanceof TransportVehicle) {
+            TransportVehicle transportVehicle = (TransportVehicle) vehicleToUpdate;
+
+            System.out.println("Current transport capacity: " + transportVehicle.getTransportCapacity());
             option = input.nextLine();
-            switch (option) {
-                case "World":
-                    System.out.println("What level is the base? (1 - 3)");
-                    option = input.nextLine();
+            if(!option.equals("No")){
+                transportVehicle.setTransportCapacity(Integer.parseInt(option));
+            }
 
-                    System.out.println("Is the base a Victory Point? (Yes/No)");
-                    switch (option) {
-                        case "Yes":
-                            victoryPoint = true;
-                            break;
-                        case "No":
-                            victoryPoint = false;
-                            break;
-                    }
-
-                    System.out.println("How many Garrison Houses does the base have?");
-                    option = input.nextLine();
-                    garrisonHouses = Integer.parseInt(option);
-
-                    System.out.println("How many Mortar Houses does the base have?");
-                    option = input.nextLine();
-                    garrisonHouses = Integer.parseInt(option);
-
-                    NewBase = new WorldBase(baseID, hex, region, inventory, garage, level, victoryPoint, garrisonHouses, mortarHouses, coastalGun, seaport);
-
-                    break;
-
-                case "FOB":
-
-                    System.out.println("Enter the UID of the player that built the base (6-digit number):");
-                    option = input.nextLine();
-                    builderUID = Integer.parseInt(option);
-
-                    System.out.println("Enter the upgrades that the base has, one per line. Write 'Stop' when you have introduced all the upgrades.");
-                    option = input.nextLine();
-                    while(option != "Stop") {
-                        upgrades.add(option);
-                        option = input.nextLine();
-                    }
-
-                    NewBase = new FOB(baseID, hex, region, inventory, garage, builderUID, upgrades, 0);
-
-                    break;
-
+            System.out.println("Current cargo type: " + transportVehicle.getCargoType());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                transportVehicle.setCargoType(option);
             }
         }
+
+        else if (vehicleToUpdate instanceof CombatVehicle) {
+            CombatVehicle combatVehicle = (CombatVehicle) vehicleToUpdate;
+
+            System.out.println("Current weaponry: " + combatVehicle.getWeaponry());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                combatVehicle.setWeaponry(option);
+            }
+
+            System.out.println("Current ammunition type: " + combatVehicle.getAmmunitionType());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                combatVehicle.setAmmunitionType(option);
+            }
+
+            System.out.println("Current ammunition capacity: " + combatVehicle.getAmmunitionCapacity());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                combatVehicle.setAmmunitionCapacity(Integer.parseInt(option));
+            }
+
+            System.out.println("Current armor layout: " + combatVehicle.getArmor());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                combatVehicle.setArmor(option);
+            }
+
+            System.out.println("Current crew required for optimum functionality: " + combatVehicle.getcrew());
+            option = input.nextLine();
+            if(!option.equals("No")){
+                combatVehicle.setcrew(Integer.parseInt(option));
+            }
+        }
+
+        VehicleService.updateVehicle(vehicleToUpdate);
     }
 
+    public void scrap_vehicle(Scanner input) {
+        System.out.println("Enter the serial number of the vehicle you wish to scrap:");
+        String option = input.nextLine();
+        int serialNumber = Integer.parseInt(option);
+        VehicleService.deleteVehicleBySerialNumber(serialNumber);
+    }
+
+    public void create_base(Scanner input) {
+        System.out.println("Enter the base ID:");
+        int baseID = Integer.parseInt(input.nextLine());
+
+        System.out.println("Enter the hex location:");
+        String hex = input.nextLine();
+
+        System.out.println("Enter the region:");
+        String region = input.nextLine();
+
+        System.out.println("Enter the base type (FOB or World Base):");
+        String baseType = input.nextLine();
+
+        if (baseType.equals("FOB")) {
+            System.out.println("Enter the UID of the builder:");
+            int builderID = Integer.parseInt(input.nextLine());
+
+            System.out.println("Enter the base's upgrades:");
+            String upgrades = input.nextLine();
+
+            System.out.println("Enter the garrison size:");
+            int garrisonSize = Integer.parseInt(input.nextLine());
+
+            // Create and insert the FOB object into the database
+            FOB fob = new FOB(baseID, hex, region, baseType, builderID, upgrades, garrisonSize);
+            BaseService.saveBase(fob);
+
+        } else if (baseType.equals("World Base")) {
+            System.out.println("Enter the base's level (1 - 3):");
+            int level = Integer.parseInt(input.nextLine());
+
+            System.out.println("Is the base a Victory Point? (true or false):");
+            boolean victoryPoint = Boolean.parseBoolean(input.nextLine());
+
+            System.out.println("Enter the number of garrison houses:");
+            int garrisonHouses = Integer.parseInt(input.nextLine());
+
+            System.out.println("Enter the number of mortar houses:");
+            int mortarHouses = Integer.parseInt(input.nextLine());
+
+            System.out.println("Does the town have a Coastal Gun? (true or false):");
+            boolean coastalGun = Boolean.parseBoolean(input.nextLine());
+
+            // Create and insert the World Base object into the database
+            WorldBase worldBase = new WorldBase(baseID, hex, region, baseType, level, victoryPoint, garrisonHouses, mortarHouses, coastalGun);
+            BaseService.saveBase(worldBase);
+        } else {
+            System.out.println("Invalid base type. Please enter either FOB or World Base.");
+        }
+    }
+
+    public void update_base(Scanner input) {
+        Base baseToUpdate;
+
+        System.out.println("Enter the base ID of the base you would like to update:");
+        int baseID = Integer.parseInt(input.nextLine());
+
+        baseToUpdate = BaseService.getBaseByID(baseID);
+
+        System.out.println("For each field below, introduce a new value if you wish to change it, or write 'No' otherwise:");
+        System.out.println("Note that only some of the fields can be updated!");
+        String option;
+
+        if (baseToUpdate instanceof FOB) {
+            FOB fob = (FOB) baseToUpdate;
+
+            System.out.println("Current upgrades: " + fob.getUpgrades());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                fob.setUpgrades(option);
+            }
+
+            System.out.println("Current garrison size: " + fob.getGarrisonSize());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                fob.setGarrisonSize(Integer.parseInt(option));
+            }
+        } else if (baseToUpdate instanceof WorldBase) {
+            WorldBase worldBase = (WorldBase) baseToUpdate;
+
+            System.out.println("Current level: " + worldBase.getLevel());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                worldBase.setLevel(Integer.parseInt(option));
+            }
+
+            System.out.println("Current victory point: " + worldBase.hasVictoryPoint());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                worldBase.setVictoryPoint(Boolean.parseBoolean(option));
+            }
+
+            System.out.println("Current garrison houses: " + worldBase.getGarrisonHouses());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                worldBase.setGarrisonHouses(Integer.parseInt(option));
+            }
+
+            System.out.println("Current mortar houses: " + worldBase.getMortarHouses());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                worldBase.setMortarHouses(Integer.parseInt(option));
+            }
+
+            System.out.println("Current coastal gun: " + worldBase.hasCoastalGun());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                worldBase.setCoastalGun(Boolean.parseBoolean(option));
+            }
+        }
+
+        BaseService.updateBase(baseToUpdate);
+    }
+
+    public void delete_base(Scanner input) {
+        System.out.println("Enter the ID of the base you would like to cancel:");
+        int baseID = Integer.parseInt(input.nextLine());
+
+        BaseService.deleteBaseByID(baseID);
+    }
+
+
+
+
     public void create_operation (Scanner input) {
-        String name, type, startTime, endTime, objective, plan;
-        ArrayList<String> branches = null;
-        ArrayList<Soldier> manpower = null;
+        String name, type, objective, plan;
+        LocalDateTime startTime, endTime;
+        String branches = null;
         int commanderUID;
 
         System.out.println("Enter the operation's name:");
@@ -331,20 +719,17 @@ public class MainService {
         option = input.nextLine();
         type = option;
 
-        System.out.println("Enter the branches involved in the operation, one per line. Write 'Stop' when you have introduced all the branches (Infantry, Artillery, Tanks, Navy, Engineers)");
+        System.out.println("Enter the branches involved in the operation (Infantry, Artillery, Tanks, Navy, Engineers):");
         option = input.nextLine();
-        while(option != "Stop") {
-            branches.add(option);
-            option = input.nextLine();
-        }
+        branches = option;
 
-        System.out.println("Enter the operation's start time (DD/MM/YYYY XX:XX):");
+        System.out.println("Enter the operation's start time (YYYY-MM-DD HH:MM):");
         option = input.nextLine();
-        startTime = option;
+        startTime = LocalDateTime.parse(option, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
-        System.out.println("Enter the operation's end time (DD/MM/YYYY XX:XX):");
+        System.out.println("Enter the operation's end time (YYYY-MM-DD HH:MM):");
         option = input.nextLine();
-        endTime = option;
+        endTime = LocalDateTime.parse(option, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
         System.out.println("Enter the operation's objective:");
         option = input.nextLine();
@@ -358,57 +743,141 @@ public class MainService {
         option = input.nextLine();
         commanderUID = Integer.parseInt(option);
 
-        Operation NewOperation = new Operation(name, type, branches, startTime, endTime, objective, plan, manpower, commanderUID);
-        operations.add(NewOperation);
-
-        ArrayList<Equipment> row = new ArrayList<Equipment>();
-        operationMateriel.add(row);
+        Operation NewOperation = new Operation(name, type, branches, startTime, endTime, objective, plan, commanderUID);
+        OperationService.insertOperation(NewOperation);
 
     }
 
+    public void update_operation(Scanner input) {
+        Operation operationToUpdate;
+
+        System.out.println("Enter the name of the operation you would like to update:");
+        String operationName = input.nextLine();
+
+        operationToUpdate = OperationService.getOperationByName(operationName);
+
+        System.out.println("For each field below, introduce a new value if you wish to change it, or write 'No' otherwise:");
+
+        System.out.println("Current operation name: " + operationToUpdate.getName());
+        String option = input.nextLine();
+        if (!option.equals("No")) {
+            operationToUpdate.setName(option);
+        }
+
+        System.out.println("Current operation type: " + operationToUpdate.getType());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            operationToUpdate.setType(option);
+        }
+
+        System.out.println("Current branches: " + operationToUpdate.getBranches());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            operationToUpdate.setBranches(option);
+        }
+
+        System.out.println("Current start time: " + operationToUpdate.getStartTime());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            LocalDateTime startTime = LocalDateTime.parse(option, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            operationToUpdate.setStartTime(startTime);
+        }
+
+        System.out.println("Current end time: " + operationToUpdate.getEndTime());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            LocalDateTime endTime = LocalDateTime.parse(option, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            operationToUpdate.setEndTime(endTime);
+        }
+
+        System.out.println("Current objective: " + operationToUpdate.getObjective());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            operationToUpdate.setObjective(option);
+        }
+
+        System.out.println("Current plan: " + operationToUpdate.getPlan());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            operationToUpdate.setPlan(option);
+        }
+
+        System.out.println("Current commander UID: " + operationToUpdate.getCommander());
+        option = input.nextLine();
+        if (!option.equals("No")) {
+            int commanderUID = Integer.parseInt(option);
+            operationToUpdate.setCommander(commanderUID);
+        }
+
+        OperationService.updateOperation(operationToUpdate);
+    }
+
+    public void cancel_operation(Scanner input) {
+        System.out.println("Enter the name of the operation you would like to cancel:");
+        String operationName = input.nextLine();
+
+        OperationService.deleteOperationByName(operationName);
+    }
+
+
+
     public void create_medal (Scanner input) {
 
-        String name, milestone, dateAwarded, citation, operationName, type;
-        int recipientUID;
+        String name, milestone, type;
 
 
         System.out.println("Enter the medal name:");
         String option = input.nextLine();
         name = option;
 
-        System.out.println("Enter the recipient's UID:");
-        option = input.nextLine();
-        recipientUID = Integer.parseInt(option);
-
         System.out.println("Enter the milestone for which the medal was awarded:");
         option = input.nextLine();
         milestone = option;
-
-        System.out.println("Enter the date when the medal was awarded:");
-        option = input.nextLine();
-        dateAwarded = option;
-
-        System.out.println("Enter the award citation:");
-        option = input.nextLine();
-        citation = option;
-
-        System.out.println("Enter the operation name during which the medal was issued:");
-        option = input.nextLine();
-        operationName = option;
 
         System.out.println("Enter the medal type (Performance / Veterancy / Commemorative):");
         option = input.nextLine();
         type = option;
 
-        Medal NewMedal = new Medal(name, recipientUID, milestone, dateAwarded, citation, operationName, type);
-        medals.add(NewMedal);
+        Medal NewMedal = new Medal(name, milestone, type);
+        MedalService.insertMedal(NewMedal);
 
     }
 
-    public void assign_soldier (Scanner input) {
+    public void modify_medal(Scanner input) {
+        Medal medalToUpdate;
+
+        System.out.println("Enter the name of the medal you would like to update:");
+        String name = input.nextLine();
+
+        medalToUpdate = MedalService.getMedal(name);
+
+        if (medalToUpdate != null) {
+            System.out.println("For each field below, introduce a new value if you wish to change it, or write 'No' otherwise:");
+
+            System.out.println("Current milestone: " + medalToUpdate.getMilestone());
+            String option = input.nextLine();
+            if (!option.equals("No")) {
+                medalToUpdate.setMilestone(option);
+            }
+
+            System.out.println("Current medal type: " + medalToUpdate.getType());
+            option = input.nextLine();
+            if (!option.equals("No")) {
+                medalToUpdate.setType(option);
+            }
+
+            MedalService.updateMedal(medalToUpdate);
+        } else {
+            System.out.println("No medal found with name: " + name);
+        }
+    }
+
+
+    public void assign_soldier_to_base (Scanner input) {
         int soldierUID, baseID;
 
-        System.out.println("Enter the UID of the soldier you wish to assign:");
+
+        System.out.println("The soldier will be unassigned from their current post. Enter the UID of the soldier you wish to assign:");
         String option = input.nextLine();
         soldierUID = Integer.parseInt(option);
 
@@ -416,17 +885,170 @@ public class MainService {
         option = input.nextLine();
         baseID = Integer.parseInt(option);
 
+        if(SoldierBase.checkAssignment(soldierUID) == -1){
+            SoldierBase.assignSoldierToBase(soldierUID, baseID);
+        }
+        else {
+            SoldierBase.unassignSoldierFromBase(soldierUID);
+            SoldierBase.assignSoldierToBase(soldierUID, baseID);
+        }
+    }
 
-        for (Soldier soldier : soldiers) {
-            if (soldier.getUID() == soldierUID) {
-                soldierAssignment.put(soldierUID, baseID);
-                System.out.println("Player " + soldier.getUsername() + " has been assigned to base number " + bases.get(baseID).getBaseID() + " in " + bases.get(baseID).getHex() + ".");
+    public void unassign_soldier_from_base (Scanner input) {
+        int soldierUID, baseID;
+
+        System.out.println("Enter the UID of the soldier you wish to unassign:");
+        String option = input.nextLine();
+        soldierUID = Integer.parseInt(option);
+
+        SoldierBase.unassignSoldierFromBase(soldierUID);
+
+    }
+
+    public void display_base_roster(Scanner input) {
+        System.out.println("Enter the UID of the base you'd like to see the roster for:");
+        String option = input.nextLine();
+        int baseID = Integer.parseInt(option);
+
+
+        List<Integer> assignedSoldiers = SoldierBase.getAllAssigned(baseID);
+
+        System.out.println("Base Roster - Base ID: " + baseID);
+        System.out.println("--------------------------");
+
+        for (int soldierUID : assignedSoldiers) {
+            String soldierUsername = SoldierService.getSoldierByUID(soldierUID).getUsername();
+            System.out.println("UID: " + soldierUID + " - Username: " + soldierUsername);
+        }
+    }
+
+    public void assign_soldier_to_operation(Scanner input) {
+        System.out.println("Enter the soldier's UID:");
+        int soldierUID = Integer.parseInt(input.nextLine());
+
+        System.out.println("Enter the operation's name:");
+        String operationName = input.nextLine();
+
+        if(SoldierOperation.checkAssignment(soldierUID).equals("-1")){
+            SoldierOperation.assignSoldierToOperation(soldierUID, operationName);
+        }
+        else {
+            SoldierOperation.unassignSoldierFromOperation(soldierUID, SoldierOperation.checkAssignment(soldierUID));
+            SoldierOperation.assignSoldierToOperation(soldierUID, operationName);
+        }
+
+
+    }
+
+    public void unassign_soldier_from_operation (Scanner input) {
+        int soldierUID;
+        String operationName;
+
+        System.out.println("Enter the UID of the soldier you wish to unassign:");
+        String option = input.nextLine();
+        soldierUID = Integer.parseInt(option);
+
+        System.out.println("Enter the name of the operation you wish to unassign the soldier from:");
+        option = input.nextLine();
+        operationName = option;
+
+        SoldierOperation.unassignSoldierFromOperation(soldierUID, operationName);
+
+    }
+
+    public void display_operation_manpower(Scanner input) {
+        System.out.println("Enter the name of the operation you wish to see the assigned players for:");
+        String option = input.nextLine();
+        String operationName = option;
+
+
+        List<Integer> assignedSoldiers = SoldierOperation.getAllAssigned(operationName);
+
+        System.out.println("Personnel assigned to Operation: " + operationName);
+        System.out.println("--------------------------");
+
+        for (int soldierUID : assignedSoldiers) {
+            String soldierUsername = SoldierService.getSoldierByUID(soldierUID).getUsername();
+            System.out.println("UID: " + soldierUID + " - Username: " + soldierUsername);
+        }
+    }
+
+
+
+    public void assign_vehicle_to_operation(Scanner input) {
+        System.out.println("Enter the serial number for the vehicle:");
+        int serialNumber = Integer.parseInt(input.nextLine());
+
+        System.out.println("Enter the operation's name:");
+        String operationName = input.nextLine();
+
+        if(VehicleOperation.checkAssignment(serialNumber).equals("-1")){
+            VehicleOperation.assignVehicleToOperation(serialNumber, operationName);
+        }
+        else {
+            VehicleOperation.unassignVehicleFromOperation(serialNumber, VehicleOperation.checkAssignment(serialNumber));
+            VehicleOperation.assignVehicleToOperation(serialNumber, operationName);
+        }
+    }
+
+    public void unassign_vehicle_from_operation (Scanner input) {
+        int serialNumber;
+        String operationName;
+
+        System.out.println("Enter the serial number for the vehicle:");
+        String option = input.nextLine();
+        serialNumber = Integer.parseInt(option);
+
+        System.out.println("Enter the name of the operation you wish to unassign the vehicle from:");
+        option = input.nextLine();
+        operationName = option;
+
+        VehicleOperation.unassignVehicleFromOperation(serialNumber, operationName);
+
+    }
+
+    public void validate_operation (Scanner input) {
+        String operationName;
+        System.out.println("Validating an operation means checking whether there is enough crew for all the vehicles, and enough vehicles for all the passengers.");
+        System.out.println("Enter the name of the operation you wish to validate:");
+        operationName = input.nextLine();
+
+        List<Integer> assignedVehicles = VehicleOperation.getAllAssigned(operationName);
+        List<Integer> assignedSoldiers = SoldierOperation.getAllAssigned(operationName);
+
+        int available_crew = 0, needed_crew = 0, passengers, passenger_seats = 0;
+
+        available_crew = assignedSoldiers.size();
+        for (int vehicleID : assignedVehicles) {
+            Vehicle vic = VehicleService.getVehicleBySerialNumber(vehicleID);
+            if(vic instanceof TransportVehicle) {
+                needed_crew += 1;
+                passenger_seats += vic.getSeats() - 1;
+            }
+            else if (vic instanceof CombatVehicle) {
+                needed_crew += ((CombatVehicle) vic).getcrew();
+            }
+        }
+
+        if(needed_crew > available_crew) {
+            System.out.println("Operation " + operationName + " may not proceed commander - not enough crew! We still need " + (needed_crew-available_crew) + " soldiers.");
+            return;
+        }
+        else {
+            passengers = available_crew - needed_crew;
+            if(passengers > passenger_seats) {
+                System.out.println("Operation " + operationName + " strained - not enough transports for everybody! We lack " + (passengers-passenger_seats) + " seats.");
+                return;
+            }
+            else {
+                System.out.println("Operation " + operationName + " is a go commander. All assets are available and fully operational!");
             }
         }
 
     }
 
-    public void assign_materiel (Scanner input) {
+
+    /*public void assign_materiel (Scanner input) {
         String opName;
         int baseID, opID = 0, equipID;
 
@@ -456,9 +1078,9 @@ public class MainService {
             case "No":
                 break; // exit
         }
-    }
+    }*/
 
-    public void load_equipment (Scanner input) {
+    /*public void load_equipment (Scanner input) {
 
         int vicNumber, baseID, itemNumber;
         int vicIndex = 0, itemIndex = 0;
@@ -513,7 +1135,7 @@ public class MainService {
 
         // should also check if the vehicle is currently stationed in the garage of the base we're picking up items from :b
 
-    }
+    }*/
 
     public void display_profile (Scanner input) {
 
@@ -521,40 +1143,140 @@ public class MainService {
 
         System.out.println("Enter the name of the soldier whose profile you'd like to inspect:");
         String option = input.nextLine();
-        soldierUID = Integer.parseInt(option);
 
-        for(int i = 0; i < soldiers.size(); i++){
-            if(soldiers.get(i).getUID() == soldierUID)
-            {
-                soldierIndex = i;
-                break;
-            }
-        }
+        Soldier soldier_displayed = SoldierService.getSoldierByName(option);
+
         System.out.println("      --- Personnel Record ---     ");
-        System.out.println("UID: " + soldiers.get(soldierIndex).getUID());
-        System.out.println("Name: " + soldiers.get(soldierIndex).getUsername());
-        System.out.println("Discord Tag: " + soldiers.get(soldierIndex).getDiscordTag());
-        System.out.println("Steam URL: " + soldiers.get(soldierIndex).getSteamUrl());
-        System.out.println("Rank: " + soldiers.get(soldierIndex).getRankType() + soldiers.get(soldierIndex).getRank());
-        System.out.println("Specialization: " + soldiers.get(soldierIndex).getSpecialization());
-        System.out.println("Skill: " + soldiers.get(soldierIndex).getSkill() + "/10");
+        System.out.println("UID: " + soldier_displayed.getUID());
+        System.out.println("Name: " + soldier_displayed.getUsername());
+        System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
+        System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
+        if(soldier_displayed.getRankType().equals("E")) System.out.println("Rank: " + "E " + EnlistedRanks.get(soldier_displayed.getRank()));
+        else if(soldier_displayed.getRankType().equals("O")) System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank()-1));
+        System.out.println("Specialization: " + soldier_displayed.getSpecialization());
+        System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
 
-        System.out.println(" -o-  -o- Medal Cabinet -o-  -o- ");
+        /*System.out.println(" -o-  -o- Medal Cabinet -o-  -o- ");
         for(int i=0; i<medals.size(); i++)
         {
             if(medals.get(i).getRecipient() == soldierUID)
             {
                 System.out.println(medals.get(i).getName() + " - Milestone achieved: " + medals.get(i).getMilestone());
             }
-        }
+        }*/
 
     }
+
+    public void display_vehicle(Scanner input) {
+        System.out.println("Enter the serial number of the vehicle for which you want to see technical details:");
+        int serialNumber = Integer.parseInt(input.nextLine());
+
+        Vehicle vehicleDisplayed = VehicleService.getVehicleBySerialNumber(serialNumber);
+
+        System.out.println("      --- Vehicle Tech Sheet ---     ");
+        System.out.println("Serial Number: " + vehicleDisplayed.getSerialNumber());
+        System.out.println("Designation: " + vehicleDisplayed.getType());
+        System.out.println("Drivetrain: " + vehicleDisplayed.getDrivetrain());
+        System.out.println("Seats: " + vehicleDisplayed.getSeats());
+        System.out.println("Fuel Capacity: " + vehicleDisplayed.getFuelCapacity());
+
+        if (vehicleDisplayed instanceof TransportVehicle) {
+            TransportVehicle transportVehicle = (TransportVehicle) vehicleDisplayed;
+            System.out.println("Transport Capacity: " + transportVehicle.getTransportCapacity());
+            System.out.println("Cargo Type: " + transportVehicle.getCargoType());
+        } else if (vehicleDisplayed instanceof CombatVehicle) {
+            CombatVehicle combatVehicle = (CombatVehicle) vehicleDisplayed;
+            System.out.println("Weaponry: " + combatVehicle.getWeaponry());
+            System.out.println("Ammunition Type: " + combatVehicle.getAmmunitionType());
+            System.out.println("Ammunition Capacity: " + combatVehicle.getAmmunitionCapacity());
+            System.out.println("Armor: " + combatVehicle.getArmor());
+            System.out.println("Optimal no. of Crew: " + combatVehicle.getcrew());
+        }
+    }
+
+    public void display_equipment(Scanner input) {
+        System.out.println("Enter the serial number of the equipment piece you wish to inspect:");
+        int serialNumber = Integer.parseInt(input.nextLine());
+
+        Equipment equipmentDisplayed = EquipmentService.getEquipmentBySerialNumber(serialNumber);
+
+        if(equipmentDisplayed != null) {
+            System.out.println("      --- Equipment Tech Sheet ---     ");
+            System.out.println("Serial Number: " + equipmentDisplayed.getSerialNumber());
+            System.out.println("Designation: " + equipmentDisplayed.getName());
+            System.out.println("Type: " + equipmentDisplayed.getType());
+            System.out.println("Inventory Space: " + equipmentDisplayed.getInventorySpace());
+            System.out.println("Slot: " + equipmentDisplayed.getSlot());
+
+            if (equipmentDisplayed instanceof Weapon) {
+                Weapon weaponDisplayed = (Weapon) equipmentDisplayed;
+                System.out.println("Ammo Type: " + weaponDisplayed.getAmmoType());
+                System.out.println("Magazine Size: " + weaponDisplayed.getMagazineSize());
+                System.out.println("Effective Range: " + weaponDisplayed.getRange());
+
+            }
+        }
+        else {
+            System.out.println("Equipment not found.");
+        }
+    }
+
+    public void display_operation(Scanner input) {
+        System.out.println("Enter the name of the operation you wish to display:");
+        String operationName = input.nextLine();
+
+        Operation operationDisplayed = OperationService.getOperationByName(operationName);
+
+        if (operationDisplayed != null) {
+            System.out.println("      --- Operation Details ---     ");
+            System.out.println("Name: " + operationDisplayed.getName());
+            System.out.println("Type: " + operationDisplayed.getType());
+            System.out.println("Branches: " + operationDisplayed.getBranches());
+            System.out.println("Start Time: " + operationDisplayed.getStartTime());
+            System.out.println("End Time: " + operationDisplayed.getEndTime());
+            System.out.println("Objective: " + operationDisplayed.getObjective());
+            System.out.println("Plan: " + operationDisplayed.getPlan());
+            System.out.println("Commander: " + SoldierService.getSoldierByUID(operationDisplayed.getCommander()).getUsername());
+        } else {
+            System.out.println("Operation not found.");
+        }
+    }
+
+    public void display_base(Scanner input) {
+        System.out.println("Enter the ID of the base you'd like to inspect:");
+        int option = Integer.parseInt(input.nextLine());
+
+        Base baseDisplayed = BaseService.getBaseByID(option);
+
+        System.out.println("      --- Base Log ---     ");
+        System.out.println("Base ID: " + baseDisplayed.getBaseID());
+        System.out.println("Hex: " + baseDisplayed.getHex());
+        System.out.println("Region: " + baseDisplayed.getRegion());
+        System.out.println("Base Type: " + baseDisplayed.getType());
+
+        String baseType = baseDisplayed.getType();
+        if (baseType.equals("FOB")) {
+            FOB fob = (FOB) baseDisplayed;
+            System.out.println("Builder ID: " + fob.getBuilder());
+            System.out.println("Upgrades: " + fob.getUpgrades());
+            System.out.println("Garrison Size: " + fob.getGarrisonSize());
+        } else if (baseType.equals("World Base")) {
+            WorldBase worldBase = (WorldBase) baseDisplayed;
+            System.out.println("Level: " + worldBase.getLevel());
+            System.out.println("Victory Point: " + worldBase.hasVictoryPoint());
+            System.out.println("Garrison Houses: " + worldBase.getGarrisonHouses());
+            System.out.println("Mortar Houses: " + worldBase.getMortarHouses());
+            System.out.println("Coastal Gun: " + worldBase.hasCoastalGun());
+        }
+    }
+
+
 
     public void upgrade_base (Scanner input) {
         // not yet implemented
     }
 
-    public void display_inventory (Scanner input) {
+    /*public void display_inventory (Scanner input) {
         System.out.println("Do you wish to display the inventory of a base or of a vehicle? ('Base' / 'Vehicle')");
         String option = input.nextLine();
         switch (option) {
@@ -582,9 +1304,9 @@ public class MainService {
                     System.out.println(vehicles.get(vehicleID).getInventory().get(i).getSerialNumber() + ": " + vehicles.get(vehicleID).getInventory().get(i).getName());
                 }
         }
-    }
+    }*/
 
-    public void assign_commander (Scanner input) {
+    /*public void assign_commander (Scanner input) {
 
         String opName, opType;
         int opIndex = 0;
@@ -668,7 +1390,7 @@ public class MainService {
         }
 
 
-    }
+    }*/
 
     public void showactions (Scanner input) {
         // should print a list of all the commands and their descriptions (the ones at the top of the Main File) - not yet implemented as it did not represent a priority

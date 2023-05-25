@@ -8,7 +8,16 @@ public class Officer extends Soldier {
     private int logisticsCommandSkill;
 
     public Officer(String username, String discordTag, String steamUrl, String rankType, int rank, String specialization, int skill, int infantryCommandSkill, int tankCommandSkill, int artilleryCommandSkill, int navyCommandSkill, int logisticsCommandSkill) {
-        super(username, discordTag, steamUrl, rankType, rank, specialization, skill);
+        super(-1, username, discordTag, steamUrl, rankType, rank, specialization, skill);
+        this.infantryCommandSkill = infantryCommandSkill;
+        this.tankCommandSkill = tankCommandSkill;
+        this.artilleryCommandSkill = artilleryCommandSkill;
+        this.navyCommandSkill = navyCommandSkill;
+        this.logisticsCommandSkill = logisticsCommandSkill;
+    }
+
+    public Officer(Soldier soldier, int infantryCommandSkill, int tankCommandSkill, int artilleryCommandSkill, int navyCommandSkill, int logisticsCommandSkill) {
+        super(soldier.getUID(), soldier.getUsername(), soldier.getDiscordTag(), soldier.getSteamUrl(), soldier.getRankType(), soldier.getRank(), soldier.getSpecialization(), soldier.getSkill());
         this.infantryCommandSkill = infantryCommandSkill;
         this.tankCommandSkill = tankCommandSkill;
         this.artilleryCommandSkill = artilleryCommandSkill;
@@ -85,9 +94,7 @@ public class Officer extends Soldier {
         this.tankCommandSkill = tankCommandSkill;
     }
 
-    public void setArtilleryCommandSkill(int artilleryCommandSkill) {
-        this.artilleryCommandSkill = artilleryCommandSkill;
-    }
+    public void setArtilleryCommandSkill(int artilleryCommandSkill) { this.artilleryCommandSkill = artilleryCommandSkill;}
 
     public void setNavyCommandSkill(int navyCommandSkill) {
         this.navyCommandSkill = navyCommandSkill;

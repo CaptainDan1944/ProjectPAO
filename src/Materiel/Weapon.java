@@ -5,8 +5,8 @@ public class Weapon extends Equipment {
     private int magazineSize;
     private int range;
 
-    public Weapon(String name, String type, int inventorySpace, int slot, String ammoType, int magazineSize, int range) {
-        super(name, type, inventorySpace, slot);
+    public Weapon(int serialNumber, String name, String type, int inventorySpace, int slot, String ammoType, int magazineSize, int range) {
+        super(serialNumber, name, type, inventorySpace, slot);
         this.ammoType = ammoType;
         this.magazineSize = magazineSize;
         this.range = range;

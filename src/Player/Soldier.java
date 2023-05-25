@@ -15,9 +15,12 @@ public class Soldier {
     private String specialization;
     private int skill;
 
-    public Soldier(String username, String discordTag, String steamUrl, String rankType, int rank, String specialization, int skill) {
-        this.UID = recruitmentNumber;
-        recruitmentNumber++;
+    public Soldier(int UID, String username, String discordTag, String steamUrl, String rankType, int rank, String specialization, int skill) {
+        if(UID == -1) {
+            this.UID = recruitmentNumber;
+            recruitmentNumber++;
+        }
+        else this.UID = UID;
         this.username = username;
         this.discordTag = discordTag;
         this.steamUrl = steamUrl;
