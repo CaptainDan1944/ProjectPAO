@@ -40,11 +40,9 @@ Players are usually organised in Regiments, hence the Operations class that trie
 * create_base
 * create_operation
 * create_medal
+* update operations for all objects
 
-* assign_soldier
-* assign_materiel
-* load_equipment
-* display_profile
-* display_inventory
-* assign_commander
-* upgrade_base
+* assign / unassign operations for Soldiers and Vehicles
+* display_base_roster (displays all soldiers assigned to a certain base)
+* display_operation_manpower (displays all soldiers assigned to an operation)
+* validate_operation (checks if there are enough soldiers to crew all vehicles)
