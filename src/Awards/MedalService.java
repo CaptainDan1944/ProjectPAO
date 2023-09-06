@@ -31,12 +31,10 @@ public class MedalService {
 
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
 
-            // Set the values for the prepared statement
             statement.setString(1, medal.getName());
             statement.setString(2, medal.getMilestone());
             statement.setString(3, medal.getType());
 
-            // Execute the insert query
             int rowsInserted = statement.executeUpdate();
 
             if (rowsInserted > 0) {

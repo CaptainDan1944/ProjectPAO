@@ -18,12 +18,14 @@ public class Main {
             String order = in.nextLine();
 
             switch (order) {
+
                 case "create_player" -> mainService.create_player(in); //done
                 case "create_equipment" -> mainService.create_equipment(in);
                 case "create_vehicle" -> mainService.create_vehicle(in); //done
                 case "create_base" -> mainService.create_base(in);
                 case "create_operation" -> mainService.create_operation(in); //done
                 case "create_medal" -> mainService.create_medal(in); //done
+                //case "create_hex" -> mainService.create_hex(in);
 
                 case "update_player" -> mainService.update_player(in); //done
                 case "dismiss_player" -> mainService.dismiss_player(in); //done
@@ -55,18 +57,17 @@ public class Main {
                 case "unassign_soldier_from_operation" -> mainService.unassign_soldier_from_operation(in); //done
                 case "display_operation_manpower" -> mainService.display_operation_manpower(in); //done
 
-                case "assign_vehicle_to_operation" -> mainService.assign_vehicle_to_operation(in);
-                case "unassign_vehicle_from_operation" -> mainService.unassign_vehicle_from_operation(in);
-                //case "display_operation_vehicles" -> mainService.display_operation_vehicles(in);
+                case "assign_vehicle_to_operation" -> mainService.assign_vehicle_to_operation(in); //done
+                case "unassign_vehicle_from_operation" -> mainService.unassign_vehicle_from_operation(in); //done
+                case "display_operation_vehicles" -> mainService.display_operation_vehicles(in); //done
 
-                case "validate_operation" -> mainService.validate_operation(in);
-                //case "assign_materiel" -> mainService.assign_materiel(in);
+                case "validate_operation" -> mainService.validate_operation(in); //done
+                case "assign_materiel" -> mainService.assign_equipment_to_vehicle(in); //done
+                case "transport_materiel" -> mainService.transport_materiel_to_base(in); //done
                 //case "hand_out_medal" -> mainService.give_medal(in);
-                //case "load_equipment" -> mainService.load_equipment(in); //deprecated
 
-                //case "upgrade_base" -> mainService.upgrade_base(in);
-                //case "display_inventory" -> mainService.display_inventory(in); //deprecated
-                //case "assign_commander" -> mainService.assign_commander(in); //deprecated
+                case "display_vehicle_inventory" -> mainService.display_vehicle_inventory(in); //done
+                case "find_commander" -> mainService.find_commander(in); //done
                 case "stop" -> stopflag = true;
             }
 

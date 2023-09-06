@@ -10,6 +10,11 @@ import java.sql.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import com.opencsv.CSVWriter;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 
@@ -24,8 +29,10 @@ public class MainService {
     SoldierBase SoldierBase = Assignment.SoldierBase.getInstance();
     SoldierOperation SoldierOperation = Assignment.SoldierOperation.getInstance();
     VehicleOperation VehicleOperation = Assignment.VehicleOperation.getInstance();
+    VehicleStorage VehicleStorage = Assignment.VehicleStorage.getInstance();
+    BaseStorage BaseStorage =  Assignment.BaseStorage.getInstance();
 
-
+    String CSV_FILE_PATH = "log.csv";
     static List<String> Actions = Arrays.asList("create_player", "create_equipment", "create_vehicle", "create_base", "create_operation", "create_medal",
             "assign_soldier", "assign_materiel", "load_equipment", "display_profile", "upgrade_base", "display_inventory",
             "assign_commander", "help", "stop");
@@ -97,7 +104,7 @@ public class MainService {
             VehicleOperation.obtainConnection(connection);
 
 
-        }catch (SQLException str) {
+        } catch (SQLException str) {
             System.out.println (str.toString());
         }
 
@@ -112,6 +119,14 @@ public class MainService {
         catch (SQLException str) {
             System.out.println (str.toString());
         }
+    }
+
+    void logAction(String actionName) {
+        String timeStamp = getCurrentTimeStamp();
+
+        String[] data = {actionName, timeStamp};
+
+        writeDataToCSV(data);
     }
 
     public void create_player (Scanner input) {
@@ -200,6 +215,7 @@ public class MainService {
         }
 
         soldiers.add(NewPlayer);
+        logAction("create_player");
 
     }
 
@@ -273,6 +289,7 @@ public class MainService {
         }
 
         SoldierService.updateSoldier(soldier_to_update);
+        logAction("update_player");
     }
 
     public void dismiss_player (Scanner input) {
@@ -285,11 +302,13 @@ public class MainService {
                 int UID = Integer.parseInt(option);
 
                 SoldierService.deleteSoldierByUID(UID);
+                logAction("dismiss_player");
             case "Username":
                 System.out.println("Enter the Username of the player you would like to dismiss:");
                 option = input.nextLine();
 
                 SoldierService.deleteSoldierByName(option);
+                logAction("dismiss_player");
         }
 
     }
@@ -335,6 +354,7 @@ public class MainService {
             item = new Weapon(-1, name, type, inventorySpace, slot, ammoType, magazineSize, range);
         }
         EquipmentService.saveEquipment(item);
+        logAction("create_equipment");
 
     }
 
@@ -396,6 +416,7 @@ public class MainService {
         }
 
         EquipmentService.updateEquipment(equipmentToUpdate);
+        logAction("update_equipment");
     }
 
     public void delete_equipment(Scanner input) {
@@ -405,6 +426,7 @@ public class MainService {
         int serialNumber = Integer.parseInt(option);
 
         EquipmentService.deleteEquipmentBySerialNumber(serialNumber);
+        logAction("delete_equipment");
 
     }
 
@@ -477,6 +499,7 @@ public class MainService {
         }
 
         VehicleService.saveVehicle(wheelie);
+        logAction("create_vehicle");
         //bases.get(baseID).addVehicle(wheelie);
 
     }
@@ -572,6 +595,7 @@ public class MainService {
         }
 
         VehicleService.updateVehicle(vehicleToUpdate);
+        logAction("update_vehicle");
     }
 
     public void scrap_vehicle(Scanner input) {
@@ -579,6 +603,7 @@ public class MainService {
         String option = input.nextLine();
         int serialNumber = Integer.parseInt(option);
         VehicleService.deleteVehicleBySerialNumber(serialNumber);
+        logAction("scrap_vehicle");
     }
 
     public void create_base(Scanner input) {
@@ -627,6 +652,7 @@ public class MainService {
             // Create and insert the World Base object into the database
             WorldBase worldBase = new WorldBase(baseID, hex, region, baseType, level, victoryPoint, garrisonHouses, mortarHouses, coastalGun);
             BaseService.saveBase(worldBase);
+            logAction("create_base");
         } else {
             System.out.println("Invalid base type. Please enter either FOB or World Base.");
         }
@@ -693,6 +719,7 @@ public class MainService {
         }
 
         BaseService.updateBase(baseToUpdate);
+        logAction("update_base");
     }
 
     public void delete_base(Scanner input) {
@@ -700,6 +727,7 @@ public class MainService {
         int baseID = Integer.parseInt(input.nextLine());
 
         BaseService.deleteBaseByID(baseID);
+        logAction("delete_base");
     }
 
 
@@ -745,6 +773,7 @@ public class MainService {
 
         Operation NewOperation = new Operation(name, type, branches, startTime, endTime, objective, plan, commanderUID);
         OperationService.insertOperation(NewOperation);
+        logAction("create_operation");
 
     }
 
@@ -810,6 +839,7 @@ public class MainService {
         }
 
         OperationService.updateOperation(operationToUpdate);
+        logAction("update_operation");
     }
 
     public void cancel_operation(Scanner input) {
@@ -817,6 +847,7 @@ public class MainService {
         String operationName = input.nextLine();
 
         OperationService.deleteOperationByName(operationName);
+        logAction("cancel_operation");
     }
 
 
@@ -840,6 +871,7 @@ public class MainService {
 
         Medal NewMedal = new Medal(name, milestone, type);
         MedalService.insertMedal(NewMedal);
+        logAction("create_medal");
 
     }
 
@@ -867,6 +899,7 @@ public class MainService {
             }
 
             MedalService.updateMedal(medalToUpdate);
+            logAction("modify_medal");
         } else {
             System.out.println("No medal found with name: " + name);
         }
@@ -887,10 +920,12 @@ public class MainService {
 
         if(SoldierBase.checkAssignment(soldierUID) == -1){
             SoldierBase.assignSoldierToBase(soldierUID, baseID);
+            logAction("assign_soldier_to_base");
         }
         else {
             SoldierBase.unassignSoldierFromBase(soldierUID);
             SoldierBase.assignSoldierToBase(soldierUID, baseID);
+            logAction("assign_soldier_to_base");
         }
     }
 
@@ -902,6 +937,7 @@ public class MainService {
         soldierUID = Integer.parseInt(option);
 
         SoldierBase.unassignSoldierFromBase(soldierUID);
+        logAction("unassign_soldier_to_base");
 
     }
 
@@ -920,6 +956,7 @@ public class MainService {
             String soldierUsername = SoldierService.getSoldierByUID(soldierUID).getUsername();
             System.out.println("UID: " + soldierUID + " - Username: " + soldierUsername);
         }
+        logAction("display_base_roster");
     }
 
     public void assign_soldier_to_operation(Scanner input) {
@@ -931,10 +968,12 @@ public class MainService {
 
         if(SoldierOperation.checkAssignment(soldierUID).equals("-1")){
             SoldierOperation.assignSoldierToOperation(soldierUID, operationName);
+            logAction("assign_soldier_to_operation");
         }
         else {
             SoldierOperation.unassignSoldierFromOperation(soldierUID, SoldierOperation.checkAssignment(soldierUID));
             SoldierOperation.assignSoldierToOperation(soldierUID, operationName);
+            logAction("assign_soldier_to_operation");
         }
 
 
@@ -953,6 +992,7 @@ public class MainService {
         operationName = option;
 
         SoldierOperation.unassignSoldierFromOperation(soldierUID, operationName);
+        logAction("unassign_soldier_to_operation");
 
     }
 
@@ -971,6 +1011,7 @@ public class MainService {
             String soldierUsername = SoldierService.getSoldierByUID(soldierUID).getUsername();
             System.out.println("UID: " + soldierUID + " - Username: " + soldierUsername);
         }
+        logAction("display_operation_manpower");
     }
 
 
@@ -984,10 +1025,12 @@ public class MainService {
 
         if(VehicleOperation.checkAssignment(serialNumber).equals("-1")){
             VehicleOperation.assignVehicleToOperation(serialNumber, operationName);
+            logAction("assign_vehicle_to_operation");
         }
         else {
             VehicleOperation.unassignVehicleFromOperation(serialNumber, VehicleOperation.checkAssignment(serialNumber));
             VehicleOperation.assignVehicleToOperation(serialNumber, operationName);
+            logAction("assign_vehicle_to_operation");
         }
     }
 
@@ -1004,7 +1047,7 @@ public class MainService {
         operationName = option;
 
         VehicleOperation.unassignVehicleFromOperation(serialNumber, operationName);
-
+        logAction("unassign_vehicle_to_operation");
     }
 
     public void validate_operation (Scanner input) {
@@ -1044,8 +1087,229 @@ public class MainService {
                 System.out.println("Operation " + operationName + " is a go commander. All assets are available and fully operational!");
             }
         }
-
+        logAction("validate_operation");
     }
+
+    public void display_operation_vehicles (Scanner input) {
+        String operationName;
+        System.out.println("Enter the name of the operation to display assigned vehicles:");
+        operationName = input.nextLine();
+
+        List<Integer> assignedVehicles = VehicleOperation.getAllAssigned(operationName);
+
+        if (assignedVehicles.isEmpty()) {
+            System.out.println("No vehicles assigned to operation " + operationName + ":");
+        } else {
+            System.out.println("Vehicles assigned to operation " + operationName + ":");
+            for (int vehicleID : assignedVehicles) {
+                Vehicle vic = VehicleService.getVehicleBySerialNumber(vehicleID);
+                if (vic != null) {
+                    System.out.println("Vehicle Type: " + vic.getClass().getSimpleName());
+                    System.out.println("Vehicle ID: " + vic.getSerialNumber());
+                    System.out.println();
+                }
+            }
+        }
+        logAction("display_operation_vehicles");
+    }
+
+    public void assign_equipment_to_vehicle (Scanner input) {
+
+        System.out.println("Enter the equipment ID:");
+        int equipmentID = input.nextInt();
+        input.nextLine();
+
+        System.out.println("Enter the vehicle ID:");
+        int vehicleID = input.nextInt();
+        input.nextLine();
+
+        Vehicle truck = VehicleService.getVehicleBySerialNumber(vehicleID);
+
+        if (truck instanceof CombatVehicle) {
+            System.out.println("The selected vehicle is not a transport vehicle!");
+            return;
+        }
+
+        TransportVehicle transportTruck = (TransportVehicle) truck;
+
+        Equipment item = EquipmentService.getEquipmentBySerialNumber(equipmentID);
+
+        int transportCapacity = transportTruck.getTransportCapacity();
+        List<Integer> equipmentList = VehicleStorage.getAllAssignedEquipment(vehicleID);
+        int occupiedCapacity = 0;
+
+        for (int items : equipmentList) {
+            occupiedCapacity += EquipmentService.getEquipmentBySerialNumber(items).getInventorySpace();
+        }
+
+        int equipmentSpace = item.getInventorySpace();
+
+        if (occupiedCapacity + equipmentSpace > transportCapacity) {
+            System.out.println("Not enough inventory space in the vehicle.");
+            return;
+        }
+
+
+        if(VehicleStorage.checkEquipmentAssignment(equipmentID) != -1)
+            VehicleStorage.unassignEquipmentFromVehicle(equipmentID, VehicleStorage.checkEquipmentAssignment(equipmentID));
+
+        VehicleStorage.assignEquipmentToVehicle(equipmentID, vehicleID);
+        logAction("assign_equipment_to_vehicle");
+        System.out.println("Equipment successfully assigned to the vehicle!");
+    }
+
+
+    public void transport_materiel_to_base (Scanner input) {
+        System.out.println("Enter the base ID:");
+        int baseID = input.nextInt();
+        input.nextLine();
+
+        System.out.println("Enter the vehicle ID:");
+        int vehicleID = input.nextInt();
+        input.nextLine();
+
+        Vehicle truck = VehicleService.getVehicleBySerialNumber(vehicleID);
+
+        if (truck instanceof CombatVehicle) {
+            System.out.println("The selected vehicle is not a transport vehicle!");
+            return;
+        }
+
+        TransportVehicle transportTruck = (TransportVehicle) truck;
+        List<Integer> equipmentList = VehicleStorage.getAllAssignedEquipment(vehicleID);
+
+        for (int items : equipmentList) {
+            BaseStorage.assignEquipmentToBase(items, baseID);
+            VehicleStorage.unassignEquipmentFromVehicle(items, vehicleID);
+        }
+        System.out.println("Equipment successfully transferred to Base!");
+        logAction("transport_materiel_to_base");
+    }
+
+    public void display_vehicle_inventory (Scanner input) {
+        System.out.println("Enter the vehicle ID:");
+        int vehicleID = input.nextInt();
+        input.nextLine();
+
+        Vehicle truck = VehicleService.getVehicleBySerialNumber(vehicleID);
+
+        if (truck instanceof CombatVehicle) {
+            System.out.println("The selected vehicle is not a transport vehicle!");
+            return;
+        }
+
+        TransportVehicle transportTruck = (TransportVehicle) truck;
+        List<Integer> equipmentList = VehicleStorage.getAllAssignedEquipment(vehicleID);
+
+        System.out.println("Vehicle content:");
+        for (int items : equipmentList) {
+            Equipment item = EquipmentService.getEquipmentBySerialNumber(items);
+            System.out.println(item.getName() + " - " + item.getSerialNumber());
+        }
+        logAction("display_vehicle_inventory");
+    }
+
+    public void find_commander(Scanner input) {
+        System.out.println("Enter the operation's name:");
+        String operationName = input.nextLine();
+
+        String op_type = OperationService.getOperationByName(operationName).getType();
+
+        List<Integer> assignedSoldiers = SoldierOperation.getAllAssigned(operationName);
+        List<Soldier> personnel = new ArrayList<>();
+
+        for (int id : assignedSoldiers) {
+            personnel.add(SoldierService.getSoldierByUID(id));
+        }
+
+
+        // Separate officers and NCOs
+        List<Soldier> officers = new ArrayList<>();
+        List<Soldier> ncos = new ArrayList<>();
+
+        for (Soldier soldier : personnel) {
+            if (soldier instanceof Officer) {
+                officers.add(soldier);
+            } else {
+                ncos.add(soldier);
+            }
+        }
+
+        // Find the officer with the highest skill level matching the operation's type
+        int top_skill = -1;
+        int best_id = -1;
+        for (Soldier soldier : officers) {
+            Officer officer = (Officer) soldier;
+
+            if(op_type.equals("Infantry")){
+                if(officer.getInfantryCommandSkill()>top_skill) {
+                    top_skill = officer.getInfantryCommandSkill();
+                    best_id = officer.getUID();
+                }
+            }
+
+            if(op_type.equals("Armor")){
+                if(officer.getTankCommandSkill()>top_skill) {
+                    top_skill = officer.getTankCommandSkill();
+                    best_id = officer.getUID();
+                }
+            }
+
+            if(op_type.equals("Artillery")){
+                if(officer.getArtilleryCommandSkill()>top_skill) {
+                    top_skill = officer.getArtilleryCommandSkill();
+                    best_id = officer.getUID();
+                }
+            }
+
+            if(op_type.equals("Navy")){
+                if(officer.getNavyCommandSkill()>top_skill) {
+                    top_skill = officer.getNavyCommandSkill();
+                    best_id = officer.getUID();
+                }
+            }
+
+            if(op_type.equals("Logistics")){
+                if(officer.getLogisticsCommandSkill()>top_skill) {
+                    top_skill = officer.getLogisticsCommandSkill();
+                    best_id = officer.getUID();
+                }
+            }
+        }
+
+        if (best_id != -1) {
+            System.out.println("A suitable commander has been assigned to the operation:");
+            display_profile(best_id);
+            OperationService.getOperationByName(operationName).setCommander(best_id);
+            return;
+        }
+
+        // Find the NCO with the highest skill level matching the operation's type
+        top_skill = -1;
+        best_id = -1;
+        for (Soldier soldier : soldiers) {
+
+            if(op_type.equals(soldier.getSpecialization())){
+                if(soldier.getSkill()>top_skill) {
+                    top_skill = soldier.getSkill();
+                    best_id = soldier.getUID();
+                }
+            }
+        }
+
+        if (best_id != -1) {
+            System.out.println("A suitable commander (NCO) has been assigned to the operation:");
+            display_profile(best_id);
+            OperationService.getOperationByName(operationName).setCommander(best_id);
+            return;
+        }
+
+        System.out.println("No suitable commander has been found!");
+        logAction("find_commander");
+        return;
+    }
+
+
 
 
     /*public void assign_materiel (Scanner input) {
@@ -1147,14 +1411,33 @@ public class MainService {
         Soldier soldier_displayed = SoldierService.getSoldierByName(option);
 
         System.out.println("      --- Personnel Record ---     ");
-        System.out.println("UID: " + soldier_displayed.getUID());
-        System.out.println("Name: " + soldier_displayed.getUsername());
-        System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
-        System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
-        if(soldier_displayed.getRankType().equals("E")) System.out.println("Rank: " + "E " + EnlistedRanks.get(soldier_displayed.getRank()));
-        else if(soldier_displayed.getRankType().equals("O")) System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank()-1));
-        System.out.println("Specialization: " + soldier_displayed.getSpecialization());
-        System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
+        System.out.println("      --- Personnel Record ---     ");
+        if (soldier_displayed instanceof Soldier) {
+            System.out.println("UID: " + soldier_displayed.getUID());
+            System.out.println("Name: " + soldier_displayed.getUsername());
+            System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
+            System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
+            System.out.println("Rank: " + EnlistedRanks.get(soldier_displayed.getRank()));
+            System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank() - 1));
+            System.out.println("Specialization: " + soldier_displayed.getSpecialization());
+            System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
+        }
+
+        if (soldier_displayed instanceof Officer) {
+            System.out.println("UID: " + soldier_displayed.getUID());
+            System.out.println("Name: " + soldier_displayed.getUsername());
+            System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
+            System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
+            System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank() - 1));
+            System.out.println("Specialization: " + soldier_displayed.getSpecialization());
+            System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getInfantryCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getTankCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getArtilleryCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getNavyCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getLogisticsCommandSkill() + "/10");
+        }
+
 
         /*System.out.println(" -o-  -o- Medal Cabinet -o-  -o- ");
         for(int i=0; i<medals.size(); i++)
@@ -1164,7 +1447,51 @@ public class MainService {
                 System.out.println(medals.get(i).getName() + " - Milestone achieved: " + medals.get(i).getMilestone());
             }
         }*/
+        logAction("display_profile");
+    }
 
+    public void display_profile (int option) {
+
+        int soldierUID, soldierIndex = 0;
+
+        Soldier soldier_displayed = SoldierService.getSoldierByUID(option);
+        
+        System.out.println("      --- Personnel Record ---     ");
+        if (soldier_displayed instanceof Soldier) {
+            System.out.println("UID: " + soldier_displayed.getUID());
+            System.out.println("Name: " + soldier_displayed.getUsername());
+            System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
+            System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
+            System.out.println("Rank: " + EnlistedRanks.get(soldier_displayed.getRank()));
+            System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank() - 1));
+            System.out.println("Specialization: " + soldier_displayed.getSpecialization());
+            System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
+        }
+
+        if (soldier_displayed instanceof Officer) {
+            System.out.println("UID: " + soldier_displayed.getUID());
+            System.out.println("Name: " + soldier_displayed.getUsername());
+            System.out.println("Discord Tag: " + soldier_displayed.getDiscordTag());
+            System.out.println("Steam URL: " + soldier_displayed.getSteamUrl());
+            System.out.println("Rank: " + "O " + OfficerRanks.get(soldier_displayed.getRank() - 1));
+            System.out.println("Specialization: " + soldier_displayed.getSpecialization());
+            System.out.println("Skill: " + soldier_displayed.getSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getInfantryCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getTankCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getArtilleryCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getNavyCommandSkill() + "/10");
+            System.out.println("Skill: " + ((Officer) soldier_displayed).getLogisticsCommandSkill() + "/10");
+        }
+
+        /*System.out.println(" -o-  -o- Medal Cabinet -o-  -o- ");
+        for(int i=0; i<medals.size(); i++)
+        {
+            if(medals.get(i).getRecipient() == soldierUID)
+            {
+                System.out.println(medals.get(i).getName() + " - Milestone achieved: " + medals.get(i).getMilestone());
+            }
+        }*/
+        logAction("display_profile");
     }
 
     public void display_vehicle(Scanner input) {
@@ -1192,6 +1519,7 @@ public class MainService {
             System.out.println("Armor: " + combatVehicle.getArmor());
             System.out.println("Optimal no. of Crew: " + combatVehicle.getcrew());
         }
+        logAction("display_vehicle");
     }
 
     public void display_equipment(Scanner input) {
@@ -1219,6 +1547,7 @@ public class MainService {
         else {
             System.out.println("Equipment not found.");
         }
+        logAction("display_equipment");
     }
 
     public void display_operation(Scanner input) {
@@ -1240,6 +1569,7 @@ public class MainService {
         } else {
             System.out.println("Operation not found.");
         }
+        logAction("display_operation");
     }
 
     public void display_base(Scanner input) {
@@ -1268,6 +1598,7 @@ public class MainService {
             System.out.println("Mortar Houses: " + worldBase.getMortarHouses());
             System.out.println("Coastal Gun: " + worldBase.hasCoastalGun());
         }
+        logAction("display_base");
     }
 
 
@@ -1391,6 +1722,20 @@ public class MainService {
 
 
     }*/
+
+    void writeDataToCSV(String[] data) {
+        try (CSVWriter writer = new CSVWriter(new FileWriter(CSV_FILE_PATH, true))) {
+            writer.writeNext(data);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    String getCurrentTimeStamp() {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Date date = new Date();
+        return dateFormat.format(date);
+    }
 
     public void showactions (Scanner input) {
         // should print a list of all the commands and their descriptions (the ones at the top of the Main File) - not yet implemented as it did not represent a priority
